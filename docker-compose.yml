@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Backend Express API
+  api:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/shophub?replicaSet=rs0
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongo1
+      - redis
+    restart: always
+
+  # Redis Caching Service
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # MongoDB Node 1
+  mongo1:
+    image: mongo:6.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+
+  # MongoDB Node 2
+  mongo2:
+    image: mongo:6.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+
+  # MongoDB Node 3
+  mongo3:
+    image: mongo:6.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+
+  # MongoDB Replica Set Initialization (C-2 Transactions fix එකට අත්‍යවශ්‍යයි)
+  mongo-init:
+    image: mongo:6.0
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    command: >
+      bash -c "sleep 5 && mongosh --host mongo1:27017 --eval '
+      rs.initiate({
+        _id: \"rs0\",
+        members: [
+          { _id: 0, host: \"mongo1:27017\" },
+          { _id: 1, host: \"mongo2:27017\" },
+          { _id: 2, host: \"mongo3:27017\" }
+        ]
+      })'"
