@@ -10,13 +10,22 @@ const { app } = require('../src/app');
 let mongo;
 
 beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
-  await mongoose.connect(mongo.getUri());
+  
+  if (process.env.MONGO_URI) {
+    await mongoose.connect(process.env.MONGO_URI);
+  } else {
+   
+    mongo = await MongoMemoryServer.create();
+    await mongoose.connect(mongo.getUri());
+  }
 }, 60000);
 
 afterAll(async () => {
   await mongoose.disconnect();
-  await mongo.stop();
+  
+  if (mongo) {
+    await mongo.stop();
+  }
 });
 
 afterEach(async () => {
